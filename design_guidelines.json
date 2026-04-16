@@ -1,0 +1,130 @@
+{
+  "theme": "Dark",
+  "archetype": "5 (Jewel & Luxury)",
+  "color_palette": {
+    "dark": {
+      "bg": "#0A0A0F",
+      "surface": "#111118",
+      "elevated": "#1A1A24",
+      "border": "#2A2A3A",
+      "primary": "#C8A96E",
+      "primary_hover": "#E6C98A",
+      "accent_blue": "#4A9EFF",
+      "success_green": "#2ECC71",
+      "danger_red": "#E74C3C",
+      "text_primary": "#FFFFFF",
+      "text_secondary": "#A1A1AA",
+      "text_tertiary": "#71717A"
+    },
+    "light": {
+      "bg": "#F5F5F0",
+      "surface": "#FFFFFF",
+      "elevated": "#F8F8F5",
+      "border": "#E5E5DF",
+      "primary": "#C8A96E",
+      "primary_hover": "#B09156",
+      "accent_blue": "#2A81E4",
+      "success_green": "#27AE60",
+      "danger_red": "#C0392B",
+      "text_primary": "#1A1A1A",
+      "text_secondary": "#52525B",
+      "text_tertiary": "#71717A"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "arabic_heading": "Amiri, Cairo",
+      "english_heading": "Cinzel",
+      "body": "IBM Plex Sans Arabic",
+      "numbers": "Roboto Mono"
+    },
+    "scale": {
+      "h1": "text-4xl leading-tight tracking-tight",
+      "h2": "text-3xl leading-snug tracking-tight",
+      "h3": "text-2xl leading-snug",
+      "h4": "text-xl font-bold",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm",
+      "caption": "text-xs tracking-wider uppercase"
+    },
+    "rules": [
+      "Use Amiri or Cairo Bold for Arabic Headings to evoke traditional elegance combined with modern clarity.",
+      "Use Cinzel Bold for English Headings to convey a premium, authoritative, and cinematic feel.",
+      "Use Roboto Mono for all financial figures (net worth, gold prices, transactions) to ensure tabular alignment and precision.",
+      "Use IBM Plex Sans Arabic for all body text to maintain high legibility across languages."
+    ]
+  },
+  "layout_and_spacing": {
+    "spacing_scale": {
+      "xs": "p-2",
+      "sm": "p-4",
+      "md": "p-6",
+      "lg": "p-8",
+      "xl": "p-12",
+      "container": "px-6 py-8"
+    },
+    "border_radius": {
+      "sm": "rounded-sm",
+      "md": "rounded-md",
+      "lg": "rounded-2xl",
+      "full": "rounded-full"
+    },
+    "rules": [
+      "Containers must use generous padding (e.g., p-6) to let content breathe and enhance the premium feel.",
+      "Adopt a card-less or subtle 'elevated' (#1A1A24) flat aesthetic for dashboards to minimize clutter, separated by 1px solid borders (#2A2A3A).",
+      "Mobile layout must support dynamic RTL (Right-to-Left) switching when the app language is set to Arabic, and LTR for English.",
+      "Use safe area insets properly on iOS and Android to prevent clipping under notches or home indicators."
+    ]
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-black font-bold rounded-lg px-6 py-4 shadow-[0_0_15px_rgba(200,169,110,0.3)]",
+      "secondary": "bg-transparent border border-primary text-primary rounded-lg px-6 py-4",
+      "ghost": "bg-transparent text-text_secondary px-6 py-4"
+    },
+    "cards": {
+      "dashboard_widget": "bg-surface border border-border rounded-2xl p-6"
+    },
+    "inputs": {
+      "text_field": "bg-elevated border border-border rounded-lg px-4 py-4 text-white focus:border-primary"
+    },
+    "navigation": {
+      "bottom_tab": "bg-surface border-t border-border pt-4 pb-safe",
+      "tab_active": "text-primary",
+      "tab_inactive": "text-text_tertiary"
+    }
+  },
+  "media_and_assets": {
+    "images": [
+      {
+        "category": "splash_screen",
+        "description": "Animated gold crescent for the welcome screen to convey Islamic premium aesthetic.",
+        "url": "https://images.unsplash.com/photo-1748975785719-c2e9be608a7e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwyfHxnb2xkJTIwY3Jlc2NlbnQlMjBtb29uJTIwYmxhY2slMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3NjMxMDg2Nnww&ixlib=rb-4.1.0&q=85"
+      }
+    ],
+    "icons": {
+      "library": "lucide-react-native",
+      "style": "Clean, thin strokes (1.5px), minimal fill unless active."
+    }
+  },
+  "motion_and_interactions": {
+    "splash_screen": "Crescent moon should smoothly scale up and glow using React Native Reanimated, with 'Developed by Ziad Sabry' fading in at the bottom.",
+    "page_transitions": "Subtle fade-in and slide-up for premium feel. Avoid jarring native screen pushes if they disrupt the flow.",
+    "buttons": "Slight scale down on press (active opacity 0.8) to give tactile feedback.",
+    "charts": "Animate line charts drawing from left to right (or right to left in RTL)."
+  },
+  "accessibility_and_testing": {
+    "contrast": "Ensure all text against #0A0A0F and #111118 meets APCA contrast guidelines. Specifically, tertiary text should not fall below 4.5:1 ratio.",
+    "test_ids": "All interactive elements (buttons, inputs, tabs, list items) MUST include a testID attribute (e.g. testID='login-submit-button') for React Native testing."
+  },
+  "instructions_to_main_agent": [
+    "This is a React Native Expo application. Use NativeWind or StyleSheet as preferred, but map the Tailwind-like tokens exactly to the provided colors.",
+    "App must default to the Dark theme. The Light theme palette is provided as a fallback.",
+    "Implement RTL strictly for Arabic using standard React Native I18nManager.",
+    "Ensure 'Developed by Ziad Sabry' is distinctly placed at the bottom of the splash screen, in an elegant, understated typography (e.g. caption scale).",
+    "Integrate the 'lucide-react-native' icon set.",
+    "For the AI chat advisor, style the chat bubbles with deep rich tones (elevated #1A1A24) rather than bright primary colors to maintain the luxury feel.",
+    "In the Investment and Gold tabs, use Roboto Mono exclusively for live prices and percent changes to emphasize precision.",
+    "Apply data-testid to UI primitives as instructed for test coverage (or testID for react-native specifically)."
+  ]
+}
