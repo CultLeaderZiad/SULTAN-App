@@ -118,8 +118,7 @@ async def login(req: LoginRequest):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if not bcrypt.checkpw(req.email.encode() if not user.get("password_hash") else req.password.encode(), 
-                          user["password_hash"].encode()):
+    if not user.get("password_hash") or not bcrypt.checkpw(req.password.encode(), user["password_hash"].encode()):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_jwt(user["auth_id"], user["email"], user["full_name"])

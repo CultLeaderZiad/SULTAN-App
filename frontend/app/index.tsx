@@ -189,10 +189,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     minWidth: 280,
     alignItems: 'center',
-    shadowColor: '#C8A96E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
     elevation: 8,
   },
   primaryButtonText: {
