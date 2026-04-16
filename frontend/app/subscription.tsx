@@ -112,6 +112,39 @@ export default function SubscriptionScreen() {
         <Text style={[styles.trialNote, { color: colors.muted }]}>
           {t('7-day free trial on first signup — all Sultan features', 'تجربة مجانية 7 أيام عند التسجيل — كل مميزات سلطان')}
         </Text>
+
+        {/* Payment Methods */}
+        <View style={[styles.paymentSection, { backgroundColor: colors.elevated, borderColor: colors.border }]}>
+          <Text style={[styles.paymentTitle, { color: colors.text }]}>
+            {t('Payment Methods', 'طرق الدفع')}
+          </Text>
+          <View style={styles.paymentMethods}>
+            <View style={[styles.paymentMethod, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 24 }}>💳</Text>
+              <Text style={[styles.paymentLabel, { color: colors.text }]}>InstaPay</Text>
+            </View>
+            <View style={[styles.paymentMethod, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 24 }}>📱</Text>
+              <Text style={[styles.paymentLabel, { color: colors.text }]}>Vodafone Cash</Text>
+            </View>
+            <View style={[styles.paymentMethod, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 24 }}>🏪</Text>
+              <Text style={[styles.paymentLabel, { color: colors.text }]}>Fawry</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            testID="contact-developer-btn"
+            style={[styles.contactBtn, { borderColor: colors.primary }]}
+          >
+            <Ionicons name="chatbubble-ellipses" size={18} color={colors.primary} />
+            <Text style={[styles.contactBtnText, { color: colors.primary }]}>
+              {t('Contact Developer for Payment', 'تواصل مع المطور للدفع')}
+            </Text>
+          </TouchableOpacity>
+          <Text style={[styles.devContact, { color: colors.muted }]}>
+            Ziad Sabry — github.com/CultLeaderZiad
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -139,4 +172,12 @@ const styles = StyleSheet.create({
   selectBtn: { height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   selectText: { fontSize: 14, fontWeight: '700' },
   trialNote: { fontSize: 12, textAlign: 'center', marginTop: 8 },
+  paymentSection: { marginTop: 24, padding: 20, borderRadius: 16, borderWidth: 1 },
+  paymentTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  paymentMethods: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  paymentMethod: { flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, alignItems: 'center', gap: 4 },
+  paymentLabel: { fontSize: 11, fontWeight: '600' },
+  contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1.5, gap: 8 },
+  contactBtnText: { fontSize: 13, fontWeight: '600' },
+  devContact: { fontSize: 11, textAlign: 'center', marginTop: 8 },
 });

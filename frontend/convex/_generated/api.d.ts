@@ -10,6 +10,7 @@
 
 import type * as admin from "../admin.js";
 import type * as chatMessages from "../chatMessages.js";
+import type * as community from "../community.js";
 import type * as gold from "../gold.js";
 import type * as halalGuide from "../halalGuide.js";
 import type * as inflation from "../inflation.js";
@@ -29,6 +30,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   chatMessages: typeof chatMessages;
+  community: typeof community;
   gold: typeof gold;
   halalGuide: typeof halalGuide;
   inflation: typeof inflation;

@@ -33,6 +33,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="community"
+        options={{
+          title: t('Community', 'المجتمع'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="transactions"
         options={{
           title: t('Transactions', 'المعاملات'),
@@ -47,17 +54,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="advisor"
-        options={{
-          title: t('Advisor', 'المستشار'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: t('Profile', 'حسابي'),
           tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="advisor"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

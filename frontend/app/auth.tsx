@@ -218,6 +218,18 @@ export default function AuthScreen() {
               </Text>
             </Text>
           </TouchableOpacity>
+
+          {isLogin && (
+            <TouchableOpacity
+              testID="forgot-password-link"
+              onPress={() => router.push('/forgot-password')}
+              style={{ marginTop: 8, paddingBottom: 32 }}
+            >
+              <Text style={[{ color: colors.primary, fontSize: 14, textAlign: 'center' }]}>
+                {t('Forgot Password?', 'نسيت كلمة المرور؟')}
+              </Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

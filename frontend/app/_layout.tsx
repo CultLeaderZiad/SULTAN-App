@@ -25,7 +25,8 @@ export default function RootLayout() {
               <Stack.Screen name="savings" options={{ presentation: 'modal' }} />
               <Stack.Screen name="inflation" options={{ presentation: 'modal' }} />
               <Stack.Screen name="subscription" options={{ presentation: 'modal' }} />
-              <Stack.Screen name="admin" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="forgot-password" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="admin" options={{ presentation: 'modal' }} />
             </Stack>
           </AuthProvider>
         </LanguageProvider>

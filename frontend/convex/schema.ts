@@ -267,4 +267,51 @@ export default defineSchema({
     content: v.string(),
     createdAt: v.number(),
   }).index("by_user", ["userId"]),
+
+  communityPosts: defineTable({
+    userId: v.id("users"),
+    authorName: v.string(),
+    authorAvatar: v.optional(v.string()),
+    content: v.string(),
+    imageBase64: v.optional(v.string()),
+    category: v.union(
+      v.literal("tip"),
+      v.literal("question"),
+      v.literal("success"),
+      v.literal("discussion"),
+      v.literal("news")
+    ),
+    likesCount: v.number(),
+    commentsCount: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_created", ["createdAt"]),
+
+  communityComments: defineTable({
+    postId: v.id("communityPosts"),
+    userId: v.id("users"),
+    authorName: v.string(),
+    content: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_post", ["postId"])
+    .index("by_user", ["userId"]),
+
+  communityLikes: defineTable({
+    postId: v.id("communityPosts"),
+    userId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_post", ["postId"])
+    .index("by_user_post", ["userId", "postId"]),
+
+  follows: defineTable({
+    followerId: v.id("users"),
+    followingId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_follower", ["followerId"])
+    .index("by_following", ["followingId"])
+    .index("by_pair", ["followerId", "followingId"]),
 });

@@ -127,15 +127,21 @@ class TestAuthEndpoints:
         print("✓ Auth protection working")
 
 class TestGoldPricesEndpoint:
-    """Gold prices endpoint"""
+    """Gold prices endpoint - LIVE data from Gold-API.com"""
     
-    def test_get_gold_prices(self, api_client):
-        """Test /api/gold/prices returns gold data"""
+    def test_get_gold_prices_live(self, api_client):
+        """Test /api/gold/prices returns LIVE gold data from Gold-API.com"""
         response = api_client.get(f"{BASE_URL}/api/gold/prices")
         
         assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         assert "prices" in data, "prices field missing"
+        assert "source" in data, "source field missing"
+        assert "updatedAt" in data, "updatedAt field missing"
+        
+        # CRITICAL: Verify source is LIVE from Gold-API.com
+        assert "Gold-API.com (Live)" in data["source"], f"Expected live source, got: {data['source']}"
+        
         assert isinstance(data["prices"], list), "prices should be a list"
         assert len(data["prices"]) > 0, "prices list is empty"
         
@@ -150,7 +156,7 @@ class TestGoldPricesEndpoint:
         assert gold_21k is not None, "21k gold price not found"
         assert gold_21k["pricePerGramEGP"] > 0, "21k gold price should be positive"
         
-        print(f"✓ Gold prices endpoint working: 21k = EGP {gold_21k['pricePerGramEGP']}")
+        print(f"✓ Gold prices endpoint working (LIVE): 21k = EGP {gold_21k['pricePerGramEGP']}, source: {data['source']}")
 
 class TestCurrencyRatesEndpoint:
     """Currency rates endpoint"""
@@ -206,9 +212,173 @@ class TestAIChatEndpoint:
         )
         
         # Based on code, AI chat doesn't require auth (just verifies if present)
+
+
+class TestPrayerTimesEndpoint:
+    """Prayer times endpoint - LIVE data from Aladhan API"""
+    
+    def test_get_prayer_times_cairo(self, api_client):
+        """Test /api/prayer-times returns prayer times for Cairo"""
+        response = api_client.get(f"{BASE_URL}/api/prayer-times?city=Cairo&country=Egypt")
+        
         assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
-        assert "response" in data, "response field missing"
-        assert len(data["response"]) > 0, "AI response is empty"
+        assert "timings" in data, "timings field missing"
+        assert "city" in data, "city field missing"
+        assert "country" in data, "country field missing"
         
-        print(f"✓ AI chat without auth working: {data['response'][:100]}...")
+        # Verify all 5 prayer times are present
+        timings = data["timings"]
+        required_prayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
+        for prayer in required_prayers:
+            assert prayer in timings, f"{prayer} missing from timings"
+            assert timings[prayer], f"{prayer} time is empty"
+            assert ":" in timings[prayer], f"{prayer} time format invalid: {timings[prayer]}"
+        
+        assert data["city"] == "Cairo", f"Expected Cairo, got {data['city']}"
+        assert data["country"] == "Egypt", f"Expected Egypt, got {data['country']}"
+        
+        print(f"✓ Prayer times endpoint working: Fajr={timings['Fajr']}, Dhuhr={timings['Dhuhr']}, Asr={timings['Asr']}, Maghrib={timings['Maghrib']}, Isha={timings['Isha']}")
+
+class TestForgotPasswordFlow:
+    """Forgot password flow - OTP generation, verification, password reset"""
+    
+    def test_forgot_password_send_otp(self, api_client):
+        """Test POST /api/auth/forgot-password sends OTP"""
+        response = api_client.post(
+            f"{BASE_URL}/api/auth/forgot-password",
+            json={"email": "test@sultan.app"}
+        )
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        data = response.json()
+        assert "success" in data, "success field missing"
+        assert data["success"] is True, "success should be True"
+        assert "message" in data, "message field missing"
+        assert "dev_otp" in data, "dev_otp field missing (needed for testing)"
+        
+        # Verify OTP is 6 digits
+        otp = data["dev_otp"]
+        assert len(otp) == 6, f"OTP should be 6 digits, got {len(otp)}"
+        assert otp.isdigit(), f"OTP should be numeric, got {otp}"
+        
+        print(f"✓ Forgot password OTP sent: {otp}")
+    
+    def test_verify_otp_valid(self, api_client):
+        """Test POST /api/auth/verify-otp with valid OTP"""
+        # First, request OTP
+        forgot_response = api_client.post(
+            f"{BASE_URL}/api/auth/forgot-password",
+            json={"email": "test@sultan.app"}
+        )
+        otp = forgot_response.json()["dev_otp"]
+        
+        # Now verify OTP
+        response = api_client.post(
+            f"{BASE_URL}/api/auth/verify-otp",
+            json={"email": "test@sultan.app", "otp": otp}
+        )
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        data = response.json()
+        assert "valid" in data, "valid field missing"
+        assert data["valid"] is True, "OTP should be valid"
+        
+        print(f"✓ OTP verification successful")
+    
+    def test_verify_otp_invalid(self, api_client):
+        """Test POST /api/auth/verify-otp with invalid OTP"""
+        response = api_client.post(
+            f"{BASE_URL}/api/auth/verify-otp",
+            json={"email": "test@sultan.app", "otp": "000000"}
+        )
+        
+        assert response.status_code == 400, f"Expected 400 for invalid OTP, got {response.status_code}"
+        data = response.json()
+        assert "detail" in data, "detail field missing"
+        assert "invalid" in data["detail"].lower(), f"Unexpected error: {data['detail']}"
+        
+        print(f"✓ Invalid OTP rejected")
+    
+    def test_reset_password_complete_flow(self, api_client):
+        """Test complete password reset flow: forgot → verify → reset → login"""
+        test_email = "test@sultan.app"
+        new_password = "NewTestPass123"
+        
+        # Step 1: Request OTP
+        forgot_response = api_client.post(
+            f"{BASE_URL}/api/auth/forgot-password",
+            json={"email": test_email}
+        )
+        assert forgot_response.status_code == 200
+        otp = forgot_response.json()["dev_otp"]
+        print(f"  Step 1: OTP received: {otp}")
+        
+        # Step 2: Reset password with OTP
+        reset_response = api_client.post(
+            f"{BASE_URL}/api/auth/reset-password",
+            json={"email": test_email, "otp": otp, "newPassword": new_password}
+        )
+        assert reset_response.status_code == 200, f"Reset failed: {reset_response.text}"
+        reset_data = reset_response.json()
+        assert "success" in reset_data, "success field missing"
+        assert reset_data["success"] is True, "Reset should succeed"
+        print(f"  Step 2: Password reset successful")
+        
+        # Step 3: Login with NEW password
+        login_response = api_client.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"email": test_email, "password": new_password}
+        )
+        assert login_response.status_code == 200, f"Login with new password failed: {login_response.text}"
+        login_data = login_response.json()
+        assert "token" in login_data, "Token missing after password reset"
+        print(f"  Step 3: Login with new password successful")
+        
+        # Step 4: Reset password back to original for future tests
+        forgot_response2 = api_client.post(
+            f"{BASE_URL}/api/auth/forgot-password",
+            json={"email": test_email}
+        )
+        otp2 = forgot_response2.json()["dev_otp"]
+        reset_response2 = api_client.post(
+            f"{BASE_URL}/api/auth/reset-password",
+            json={"email": test_email, "otp": otp2, "newPassword": "Test123456"}
+        )
+        assert reset_response2.status_code == 200
+        print(f"  Step 4: Password restored to original")
+        
+        print(f"✓ Complete password reset flow working")
+
+class TestAvatarEndpoint:
+    """Profile avatar upload endpoint"""
+    
+    def test_update_avatar_with_auth(self, api_client, test_user_token):
+        """Test POST /api/auth/avatar with valid token"""
+        # Mock base64 image data (1x1 transparent PNG)
+        mock_avatar = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        
+        response = api_client.post(
+            f"{BASE_URL}/api/auth/avatar",
+            headers={"Authorization": f"Bearer {test_user_token}"},
+            json={"avatarBase64": mock_avatar}
+        )
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        data = response.json()
+        assert "success" in data, "success field missing"
+        assert data["success"] is True, "Avatar update should succeed"
+        
+        print(f"✓ Avatar upload working")
+    
+    def test_update_avatar_without_auth(self, api_client):
+        """Test POST /api/auth/avatar without token returns 401"""
+        mock_avatar = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        
+        response = api_client.post(
+            f"{BASE_URL}/api/auth/avatar",
+            json={"avatarBase64": mock_avatar}
+        )
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        print(f"✓ Avatar endpoint auth protection working")
