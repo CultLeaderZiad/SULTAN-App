@@ -34,11 +34,18 @@ export default function ForgotPasswordScreen() {
       });
       const data = await resp.json();
       if (data.dev_otp) setDevOtp(data.dev_otp);
+      if (data.email_sent) {
+        Alert.alert(
+          t('OTP Sent! 📧', 'تم إرسال الرمز! 📧'),
+          t('Check your email for the 6-digit code', 'تحقق من بريدك الإلكتروني للرمز المكون من 6 أرقام')
+        );
+      } else {
+        Alert.alert(
+          t('Code Generated', 'تم إنشاء الرمز'),
+          t('Check your email (or backend logs for dev)', 'تحقق من بريدك الإلكتروني')
+        );
+      }
       setStep('otp');
-      Alert.alert(
-        t('OTP Sent', 'تم إرسال الرمز'),
-        t('Check your email for the 6-digit code', 'تحقق من بريدك الإلكتروني للرمز المكون من 6 أرقام')
-      );
     } catch (e) {
       Alert.alert('Error', 'Failed to send OTP');
     } finally {

@@ -35,7 +35,14 @@
         }
       ],
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a profile photo",
+          "cameraPermission": "Take a profile photo"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

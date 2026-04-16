@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
 } from 'react-native';
@@ -10,6 +10,13 @@ import { useTheme } from '../../src/contexts/ThemeContext';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import {
+  registerForPushNotifications,
+  checkGoldPriceChange,
+  scheduleDailyGoldCheck,
+} from '../../src/services/notifications';
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -17,6 +24,9 @@ export default function DashboardScreen() {
   const { colors } = useTheme();
   const { t, language } = useLanguage();
   const [refreshing, setRefreshing] = React.useState(false);
+  const [liveGoldPrices, setLiveGoldPrices] = useState<any[]>([]);
+  const [prayerTimes, setPrayerTimes] = useState<any>(null);
+  const [goldSource, setGoldSource] = useState('');
 
   const convexUser = useQuery(api.users.getByAuthId, user?.authId ? { authId: user.authId } : 'skip');
   const goldPrices = useQuery(api.gold.getLatestGoldPrices);
@@ -42,14 +52,44 @@ export default function DashboardScreen() {
     seedInflation({});
     seedPlans({});
     seedHalal({});
+    // Register for push notifications
+    registerForPushNotifications();
+    scheduleDailyGoldCheck(language);
+    // Fetch live gold prices
+    fetchLiveGold();
+    // Fetch prayer times
+    fetchPrayerTimes();
   }, []);
+
+  const fetchLiveGold = async () => {
+    try {
+      const resp = await fetch(`${BACKEND_URL}/api/gold/prices`);
+      const data = await resp.json();
+      setLiveGoldPrices(data.prices || []);
+      setGoldSource(data.source || '');
+      // Check for significant gold price changes and notify
+      if (data.prices) {
+        checkGoldPriceChange(data.prices, language);
+      }
+    } catch (e) { console.log('Gold fetch error:', e); }
+  };
+
+  const fetchPrayerTimes = async () => {
+    try {
+      const resp = await fetch(`${BACKEND_URL}/api/prayer-times?city=Cairo&country=Egypt`);
+      const data = await resp.json();
+      setPrayerTimes(data);
+    } catch (e) { console.log('Prayer times error:', e); }
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
+    fetchLiveGold();
+    fetchPrayerTimes();
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  const gold21k = goldPrices?.find((g) => g.karat === 21);
+  const gold21k = liveGoldPrices.find((g: any) => g.karat === 21) || goldPrices?.find((g) => g.karat === 21);
   const greeting = language === 'ar'
     ? `أهلاً ${convexUser?.fullName || user?.fullName || ''} 👋`
     : `Hello ${convexUser?.fullName || user?.fullName || ''} 👋`;
@@ -202,6 +242,26 @@ export default function DashboardScreen() {
           </View>
         )}
 
+        {/* Prayer Times Widget */}
+        {prayerTimes && (
+          <View testID="prayer-widget" style={[styles.prayerWidget, { backgroundColor: colors.elevated, borderColor: colors.border }]}>
+            <View style={styles.prayerHeader}>
+              <Text style={{ fontSize: 18 }}>🕌</Text>
+              <Text style={[styles.prayerTitle, { color: colors.primary }]}>
+                {t('Prayer Times', 'مواقيت الصلاة')} — {prayerTimes.city}
+              </Text>
+            </View>
+            <View style={styles.prayerRow}>
+              {Object.entries(prayerTimes.timings || {}).map(([name, time]) => (
+                <View key={name} style={styles.prayerItem}>
+                  <Text style={[styles.prayerName, { color: colors.muted }]}>{name}</Text>
+                  <Text style={[styles.prayerTime, { color: colors.text }]}>{time as string}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Quick Actions */}
         <View style={styles.quickActions}>
           {[
@@ -295,4 +355,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickActionLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  prayerWidget: { padding: 14, borderRadius: 14, borderWidth: 1, marginTop: 16, marginBottom: 4 },
+  prayerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  prayerTitle: { fontSize: 14, fontWeight: '700' },
+  prayerRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  prayerItem: { alignItems: 'center', gap: 2 },
+  prayerName: { fontSize: 10, fontWeight: '600' },
+  prayerTime: { fontSize: 13, fontWeight: '700' },
 });

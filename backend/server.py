@@ -24,6 +24,8 @@ db = client[os.environ['DB_NAME']]
 JWT_SECRET = os.environ['JWT_SECRET']
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 GOLD_API_KEY = os.environ.get('GOLD_API_KEY', '')
+SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'noreply@sultan-app.com')
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -164,6 +166,45 @@ async def get_me(authorization: Optional[str] = Header(None)):
             "full_name": user["full_name"], "picture": user.get("picture", "")}
 
 # ─── FORGOT PASSWORD ───
+async def send_otp_email(email: str, otp: str):
+    """Send OTP via SendGrid"""
+    if not SENDGRID_API_KEY:
+        logger.warning("SendGrid not configured, OTP logged only")
+        return False
+    try:
+        from sendgrid import SendGridAPIClient
+        from sendgrid.helpers.mail import Mail
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #0A0A0F; color: #fff; padding: 40px; border-radius: 16px;">
+            <div style="text-align: center; margin-bottom: 24px;">
+                <h1 style="color: #C8A96E; font-size: 28px; margin: 0;">SULTAN سلطان</h1>
+                <p style="color: #9A9A9A; font-size: 13px;">Password Reset Code</p>
+            </div>
+            <div style="text-align: center; background: #111118; padding: 24px; border-radius: 12px; border: 1px solid #2A2A3A;">
+                <p style="color: #9A9A9A; font-size: 14px; margin: 0 0 12px 0;">Your verification code is:</p>
+                <h2 style="color: #C8A96E; font-size: 36px; letter-spacing: 12px; margin: 0; font-family: monospace;">{otp}</h2>
+                <p style="color: #444455; font-size: 12px; margin: 16px 0 0 0;">This code expires in 10 minutes</p>
+            </div>
+            <p style="color: #444455; font-size: 11px; text-align: center; margin-top: 24px;">
+                If you didn't request this, ignore this email.<br/>
+                Developed by Ziad Sabry
+            </p>
+        </div>
+        """
+        message = Mail(
+            from_email=SENDER_EMAIL,
+            to_emails=email,
+            subject='SULTAN - Password Reset Code',
+            html_content=html_content,
+        )
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        response = sg.send(message)
+        logger.info(f"SendGrid email sent to {email}, status: {response.status_code}")
+        return response.status_code == 202
+    except Exception as e:
+        logger.error(f"SendGrid email error: {e}")
+        return False
+
 @api_router.post("/auth/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest):
     user = await db.users.find_one({"email": req.email}, {"_id": 0})
@@ -176,9 +217,14 @@ async def forgot_password(req: ForgotPasswordRequest):
         "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
         "created_at": datetime.now(timezone.utc),
     })
-    # In production, send email via SendGrid/Resend. For now, log it.
     logger.info(f"[OTP] Password reset code for {req.email}: {otp}")
-    return {"message": "If email exists, OTP has been sent", "success": True, "dev_otp": otp}
+    email_sent = await send_otp_email(req.email, otp)
+    return {
+        "message": "OTP has been sent to your email" if email_sent else "If email exists, OTP has been sent",
+        "success": True,
+        "email_sent": email_sent,
+        "dev_otp": otp if not email_sent else None,
+    }
 
 @api_router.post("/auth/verify-otp")
 async def verify_otp(req: VerifyOTPRequest):
