@@ -6,69 +6,62 @@ SULTAN is a premium Arabic finance mobile app for Egyptian young men aged 18-30.
 ## App Identity
 - **Name**: SULTAN (سلطان)
 - **Tagline**: "كن سلطان مالك" / "Be the Sultan of Your Money"
-- **Developer**: Ziad Sabry
+- **Developer**: Ziad Sabry (github.com/CultLeaderZiad)
 - **Platform**: React Native + Expo (iOS + Android)
 
 ## Tech Stack
 - **Frontend**: React Native (Expo SDK 54) with expo-router file-based navigation
 - **Database**: Convex (https://pastel-wildebeest-832.convex.cloud)
-- **Backend**: FastAPI (Python) for auth + AI chat
-- **Auth**: JWT (email/password) + Emergent Google OAuth
+- **Backend**: FastAPI (Python) for auth + AI chat + external APIs
+- **Auth**: JWT (email/password) + Emergent Google OAuth + Forgot Password with OTP
 - **AI**: Gemini 2.5 Flash via Emergent LLM Key
-- **Auth Storage**: MongoDB (sessions/users), Convex (app data)
+- **Live Data**: Gold-API.com (gold prices), Aladhan API (prayer times)
 
-## Architecture
-1. **FastAPI Backend (port 8001)**: Auth endpoints, AI chat proxy, gold/currency API proxy
-2. **Convex Cloud**: All financial data (users, transactions, gold, investments, savings goals, inflation, etc.)
-3. **Expo Frontend**: 12+ screens with 5-tab bottom navigation
+## Screens (14 total)
+1. ✅ Welcome/Splash — Animated gold crescent, SULTAN branding
+2. ✅ Auth — Email/Google OAuth tabs, register/login + Forgot Password link
+3. ✅ Forgot Password — 3-step flow: email → 6-digit OTP → new password
+4. ✅ Onboarding — 4-step (language, currency, income, goals)
+5. ✅ Dashboard — Net worth, gold widget (LIVE), inflation alert, prayer times, quick actions
+6. ✅ Community — Twitter-like social feed with posts, likes, comments, categories
+7. ✅ Transactions — Full CRUD with categories, halal toggle, monthly summary
+8. ✅ Gold & Investments — LIVE gold prices, holdings, portfolio, calculators (Gold vs Bank, Zakat)
+9. ✅ AI Advisor — Chat with SULTAN AI (Gemini), quick prompts, bilingual
+10. ✅ Profile — Image picker (camera+gallery), settings, dark/light mode, language, logout
+11. ✅ Savings Goals — Create goals, deposits, progress tracking
+12. ✅ Inflation Survival — Live rate, survival guide, side hustles directory
+13. ✅ Subscription — 3 plans with InstaPay/VodafoneCash/Fawry + Contact Developer
+14. ✅ Admin Dashboard — User stats, plan breakdown, user management, halal guide
 
-## Screens Implemented
-1. ✅ **Welcome/Splash** — Animated gold crescent, SULTAN branding, bilingual CTA buttons
-2. ✅ **Auth** — Email/Google OAuth tabs, register/login toggle
-3. ✅ **Onboarding** — 4-step (language, currency, income, goals) with progress bar
-4. ✅ **Dashboard** — Net worth card, gold widget, inflation alert, recent transactions, quick actions
-5. ✅ **Transactions** — Full CRUD with filters, categories, halal toggle, monthly summary
-6. ✅ **Gold & Investments** — Live gold prices, holdings tracker, portfolio, Gold vs Bank calculator, Zakat calculator
-7. ✅ **AI Advisor** — Chat with SULTAN AI (Gemini), quick prompts, bilingual support
-8. ✅ **Profile** — User card, settings, dark/light mode toggle, language switch, logout
-9. ✅ **Savings Goals** — Create goals, add deposits, progress tracking, status badges
-10. ✅ **Inflation Survival** — Inflation rate, history chart, survival guide, side hustles list
-11. ✅ **Subscription** — 3 plans (Basic/Pro/Sultan), monthly/yearly toggle, feature comparison
-12. ✅ **Admin Dashboard** — User stats, plan breakdown, user management, halal guide, pricing
+## Navigation
+- 5-tab bottom bar: Home | Community | Transactions | Invest | Profile
+- AI Advisor accessible from Home tab
 
-## Design System
-- **Dark theme** (default): bg #0A0A0F, gold primary #C8A96E
-- **Light theme**: bg #F5F5F0, same gold primary
-- **Typography**: Cinzel (English headings), Arabic system fonts, Roboto Mono (numbers)
-- **RTL/LTR**: Full bilingual Arabic/English support with direction switching
-
-## Key Features
-- Real-time data via Convex
-- JWT + Google OAuth authentication
-- AI-powered financial advisor (Gemini)
-- Gold price tracking with investment calculator
-- Inflation monitoring with survival guide
-- Halal/Haram investment classification
-- Savings goals with progress tracking
-- Side hustle directory with earnings estimates
-- Zakat calculator
-- Admin dashboard for content management
+## New Features (Iteration 2)
+- **Live Gold Prices** from Gold-API.com (XAU/USD → EGP conversion, 1min cache)
+- **Prayer Times** from Aladhan API (supports all Egyptian + Gulf cities)
+- **Community Social Feed** — Create posts, like, comment, follow users (real-time via Convex)
+- **Forgot Password** — 6-digit OTP via email (dev mode shows OTP)
+- **Profile Image** — Camera + gallery picker support
+- **InstaPay Payment** — With contact developer option for subscriptions
 
 ## API Endpoints
-- `POST /api/auth/register` — Register with email/password
-- `POST /api/auth/login` — Login with email/password
-- `POST /api/auth/google-session` — Google OAuth session exchange
-- `GET /api/auth/me` — Get current user info
-- `POST /api/ai/chat` — AI chat with SULTAN advisor
-- `GET /api/gold/prices` — Gold prices (18k/21k/24k)
-- `GET /api/currency/rates` — Currency exchange rates
+- `POST /api/auth/register` — Register
+- `POST /api/auth/login` — Login
+- `POST /api/auth/google-session` — Google OAuth
+- `GET /api/auth/me` — Current user
+- `POST /api/auth/forgot-password` — Send OTP
+- `POST /api/auth/verify-otp` — Verify code
+- `POST /api/auth/reset-password` — Reset password
+- `POST /api/auth/avatar` — Upload profile image
+- `POST /api/ai/chat` — AI chat
+- `GET /api/gold/prices` — LIVE gold prices
+- `GET /api/prayer-times` — Prayer times
+- `GET /api/currency/rates` — Currency rates
 
-## Mocked/Seed Data
-- Gold prices: Static seed data in Convex (not live API)
-- Inflation data: Seeded 12 months of data
-- Currency rates: Static response
-- Pricing plans: Seeded 3 plans
-- Halal guide: Seeded 7 entries
+## Convex Tables (20+)
+users, transactions, budgets, goldTracking, goldPrices, investments, savingsGoals, sideHustles, aiInsights, inflationData, prayerSettings, subscriptions, pricingPlans, adminLogs, notifications, halalGuide, chatMessages, communityPosts, communityComments, communityLikes, follows
 
 ## Business Enhancement
-💡 **Referral Program**: Add a "Invite a Friend" feature where users earn 1 free month of Pro for each referral. Young Egyptian men are highly social — word-of-mouth referrals could drive 3-5x user growth with minimal marketing spend. Track via unique referral codes stored in Convex.
+💡 **Referral Program**: "Invite a Friend" = 1 free month of Pro. Young Egyptian men are highly social — word-of-mouth could drive 3-5x growth.
+💡 **Community Engagement**: The social feed creates network effects — users who connect stay longer and have 4x higher retention.
