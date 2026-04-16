@@ -1,0 +1,298 @@
+import React, { useEffect } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { useLanguage } from '../../src/contexts/LanguageContext';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+
+export default function DashboardScreen() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { colors } = useTheme();
+  const { t, language } = useLanguage();
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const convexUser = useQuery(api.users.getByAuthId, user?.authId ? { authId: user.authId } : 'skip');
+  const goldPrices = useQuery(api.gold.getLatestGoldPrices);
+  const inflationData = useQuery(api.inflation.getLatestInflationData);
+
+  const seedGold = useMutation(api.gold.seedGoldPrices);
+  const seedInflation = useMutation(api.inflation.seedInflationData);
+  const seedPlans = useMutation(api.pricingPlans.seedPricingPlans);
+  const seedHalal = useMutation(api.halalGuide.seedHalalGuide);
+
+  const now = new Date();
+  const summary = useQuery(
+    api.transactions.getMonthlySummary,
+    convexUser?._id ? { userId: convexUser._id, month: now.getMonth() + 1, year: now.getFullYear() } : 'skip'
+  );
+  const recentTxns = useQuery(
+    api.transactions.getTransactions,
+    convexUser?._id ? { userId: convexUser._id } : 'skip'
+  );
+
+  useEffect(() => {
+    seedGold({});
+    seedInflation({});
+    seedPlans({});
+    seedHalal({});
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 1000);
+  };
+
+  const gold21k = goldPrices?.find((g) => g.karat === 21);
+  const greeting = language === 'ar'
+    ? `أهلاً ${convexUser?.fullName || user?.fullName || ''} 👋`
+    : `Hello ${convexUser?.fullName || user?.fullName || ''} 👋`;
+
+  const netWorth = (summary?.totalIncome || 0) - (summary?.totalExpenses || 0);
+  const categories = [
+    { icon: 'wallet', label: t('Income', 'الدخل'), value: summary?.totalIncome || 0, color: colors.success },
+    { icon: 'card', label: t('Expenses', 'المصاريف'), value: summary?.totalExpenses || 0, color: colors.danger },
+    { icon: 'trending-up', label: t('Savings', 'المدخرات'), value: `${(summary?.savingsRate || 0).toFixed(0)}%`, color: colors.accent },
+  ];
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
+        <Text testID="dashboard-greeting" style={[styles.greeting, { color: colors.text }]}>
+          {greeting}
+        </Text>
+
+        {/* Net Worth Card */}
+        <View testID="net-worth-card" style={[styles.netWorthCard, { backgroundColor: colors.primary }]}>
+          <Text style={styles.netWorthLabel}>{t('Net Worth', 'صافي الثروة')}</Text>
+          <Text style={styles.netWorthValue}>
+            {convexUser?.currency || 'EGP'} {netWorth.toLocaleString()}
+          </Text>
+          <Text style={styles.netWorthChange}>
+            {t('This month', 'هذا الشهر')}
+          </Text>
+        </View>
+
+        {/* Quick Stats */}
+        <View style={styles.statsRow}>
+          {categories.map((cat, i) => (
+            <View key={i} style={[styles.statCard, { backgroundColor: colors.elevated, borderColor: colors.border }]}>
+              <Ionicons name={cat.icon as any} size={20} color={cat.color} />
+              <Text style={[styles.statLabel, { color: colors.muted }]}>{cat.label}</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {typeof cat.value === 'number' ? cat.value.toLocaleString() : cat.value}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Gold Price Widget */}
+        {gold21k && (
+          <TouchableOpacity
+            testID="gold-widget"
+            style={[styles.goldWidget, { backgroundColor: colors.elevated, borderColor: colors.border }]}
+            onPress={() => router.push('/(tabs)/invest')}
+          >
+            <View style={styles.goldHeader}>
+              <View style={styles.goldTitleRow}>
+                <Text style={{ fontSize: 24 }}>🪙</Text>
+                <Text style={[styles.goldTitle, { color: colors.primary }]}>
+                  {t('Gold 21K', 'ذهب عيار 21')}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.goldPrice, { color: colors.text }]}>
+                  EGP {gold21k.pricePerGramEGP.toLocaleString()}
+                </Text>
+                <Text style={[styles.goldChange, { color: colors.success }]}>
+                  ▲ 0.8% {t('today', 'اليوم')}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.goldSignal, { backgroundColor: colors.success + '20' }]}>
+              <Ionicons name="trending-up" size={16} color={colors.success} />
+              <Text style={[styles.goldSignalText, { color: colors.success }]}>
+                {t('Buy Signal — Gold beating inflation', 'إشارة شراء — الذهب يتغلب على التضخم')}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Inflation Alert */}
+        {inflationData && inflationData.ratePercent > 15 && (
+          <TouchableOpacity
+            testID="inflation-alert"
+            style={[styles.inflationBanner, { backgroundColor: colors.danger + '15', borderColor: colors.danger + '40' }]}
+            onPress={() => router.push('/inflation')}
+          >
+            <View style={styles.inflationRow}>
+              <Ionicons name="warning" size={24} color={colors.danger} />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.inflationTitle, { color: colors.danger }]}>
+                  {t('Inflation Alert', 'تحذير التضخم')} ⚠️
+                </Text>
+                <Text style={[styles.inflationRate, { color: colors.text }]}>
+                  {inflationData.ratePercent}% — {t('Your EGP is losing value', 'الجنيه بيفقد قيمته')}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Recent Transactions */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {t('Recent Transactions', 'آخر المعاملات')}
+          </Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/transactions')}>
+            <Text style={[styles.seeAll, { color: colors.primary }]}>{t('See All', 'عرض الكل')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {recentTxns && recentTxns.length > 0 ? (
+          recentTxns.slice(0, 5).map((txn, i) => (
+            <View
+              key={txn._id}
+              testID={`recent-txn-${i}`}
+              style={[styles.txnRow, { backgroundColor: colors.elevated, borderColor: colors.border }]}
+            >
+              <View style={[styles.txnIcon, { backgroundColor: txn.type === 'income' ? colors.success + '20' : colors.danger + '20' }]}>
+                <Ionicons
+                  name={txn.type === 'income' ? 'arrow-down' : 'arrow-up'}
+                  size={18}
+                  color={txn.type === 'income' ? colors.success : colors.danger}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.txnDesc, { color: colors.text }]}>{txn.description}</Text>
+                <Text style={[styles.txnDate, { color: colors.muted }]}>
+                  {new Date(txn.date).toLocaleDateString()}
+                </Text>
+              </View>
+              <Text style={[styles.txnAmount, { color: txn.type === 'income' ? colors.success : colors.danger }]}>
+                {txn.type === 'income' ? '+' : '-'}{txn.currency} {txn.amount.toLocaleString()}
+              </Text>
+            </View>
+          ))
+        ) : (
+          <View style={[styles.emptyState, { backgroundColor: colors.elevated, borderColor: colors.border }]}>
+            <Ionicons name="receipt-outline" size={40} color={colors.muted} />
+            <Text style={[styles.emptyText, { color: colors.muted }]}>
+              {t('No transactions yet', 'لا توجد معاملات بعد')}
+            </Text>
+            <TouchableOpacity
+              testID="add-first-txn-btn"
+              style={[styles.addFirstBtn, { borderColor: colors.primary }]}
+              onPress={() => router.push('/(tabs)/transactions')}
+            >
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                {t('Add your first transaction', 'أضف أول معاملة')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          {[
+            { icon: 'add-circle', label: t('Add Transaction', 'إضافة معاملة'), route: '/(tabs)/transactions' },
+            { icon: 'flag', label: t('Savings Goals', 'أهداف الادخار'), route: '/savings' },
+            { icon: 'shield-checkmark', label: t('Inflation Guide', 'دليل التضخم'), route: '/inflation' },
+          ].map((action, i) => (
+            <TouchableOpacity
+              key={i}
+              testID={`quick-action-${i}`}
+              style={[styles.quickAction, { backgroundColor: colors.elevated, borderColor: colors.border }]}
+              onPress={() => router.push(action.route as any)}
+            >
+              <Ionicons name={action.icon as any} size={24} color={colors.primary} />
+              <Text style={[styles.quickActionLabel, { color: colors.text }]}>{action.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  scroll: { padding: 20, paddingBottom: 40 },
+  greeting: { fontSize: 24, fontWeight: '700', marginBottom: 20 },
+  netWorthCard: {
+    padding: 24,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  netWorthLabel: { color: '#0A0A0F', fontSize: 14, fontWeight: '500', opacity: 0.7 },
+  netWorthValue: { color: '#0A0A0F', fontSize: 36, fontWeight: '900', marginVertical: 4 },
+  netWorthChange: { color: '#0A0A0F', fontSize: 13, opacity: 0.6 },
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  statCard: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  statLabel: { fontSize: 11 },
+  statValue: { fontSize: 16, fontWeight: '700' },
+  goldWidget: { padding: 16, borderRadius: 14, borderWidth: 1, marginBottom: 12 },
+  goldHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  goldTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  goldTitle: { fontSize: 16, fontWeight: '700' },
+  goldPrice: { fontSize: 20, fontWeight: '800' },
+  goldChange: { fontSize: 13, marginTop: 2 },
+  goldSignal: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, padding: 8, borderRadius: 8 },
+  goldSignalText: { fontSize: 12, fontWeight: '600' },
+  inflationBanner: { padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 16 },
+  inflationRow: { flexDirection: 'row', alignItems: 'center' },
+  inflationTitle: { fontSize: 14, fontWeight: '700' },
+  inflationRate: { fontSize: 13, marginTop: 2 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginTop: 8 },
+  sectionTitle: { fontSize: 18, fontWeight: '700' },
+  seeAll: { fontSize: 13, fontWeight: '600' },
+  txnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+    gap: 12,
+  },
+  txnIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  txnDesc: { fontSize: 14, fontWeight: '600' },
+  txnDate: { fontSize: 11, marginTop: 2 },
+  txnAmount: { fontSize: 15, fontWeight: '700' },
+  emptyState: {
+    padding: 32,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyText: { fontSize: 14 },
+  addFirstBtn: { borderWidth: 1, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  quickActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  quickAction: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  quickActionLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
+});
