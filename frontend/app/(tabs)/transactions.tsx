@@ -10,6 +10,7 @@ import { useTheme } from '../../src/contexts/ThemeContext';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { toEGP } from '../../src/utils/currency';
 
 const CATEGORIES = [
   { key: 'food', icon: '🍔', en: 'Food & Drinks', ar: 'طعام ومشروبات' },
@@ -67,12 +68,13 @@ export default function TransactionsScreen() {
     }
     try {
       const amountNum = parseFloat(amount);
+      const userCurrency = (convexUser.currency || 'EGP') as 'EGP' | 'SAR' | 'AED';
       await addTransaction({
         userId: convexUser._id,
         type: txnType,
         amount: amountNum,
-        currency: convexUser.currency || 'EGP',
-        amountEGP: amountNum,
+        currency: userCurrency,
+        amountEGP: toEGP(amountNum, userCurrency),
         category,
         description,
         note: note || undefined,

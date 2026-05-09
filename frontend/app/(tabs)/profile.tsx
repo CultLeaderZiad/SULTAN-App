@@ -10,6 +10,7 @@ import { useTheme } from '../../src/contexts/ThemeContext';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { openWhatsAppGeneric, openEmailGeneric } from '../../src/utils/payments';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -41,6 +42,9 @@ export default function ProfileScreen() {
     pro: '#C8A96E',
     sultan: '#E6C98A',
   };
+
+  const isAdmin = convexUser?.role === 'admin' || convexUser?.role === 'super_admin';
+  const isSuperAdmin = convexUser?.role === 'super_admin';
 
   const sections = [
     {
@@ -75,6 +79,13 @@ export default function ProfileScreen() {
       ],
     },
     {
+      title: t('Support', 'الدعم'),
+      items: [
+        { icon: 'logo-whatsapp', label: t('WhatsApp Support', 'دعم واتساب'), onPress: () => openWhatsAppGeneric(language) },
+        { icon: 'mail', label: t('Email Support', 'دعم بالإيميل'), onPress: () => openEmailGeneric(language) },
+      ],
+    },
+    {
       title: t('Account', 'الحساب'),
       items: [
         { icon: 'log-out', label: t('Logout', 'تسجيل الخروج'), onPress: handleLogout, danger: true },
@@ -82,10 +93,10 @@ export default function ProfileScreen() {
     },
   ];
 
-  // Add admin section if user is admin
-  if (convexUser?.role === 'admin') {
+  // Add admin section for admins / super admins
+  if (isAdmin) {
     sections.splice(2, 0, {
-      title: t('Admin', 'الإدارة'),
+      title: isSuperAdmin ? t('Super Admin', 'سوبر أدمن') : t('Admin', 'الإدارة'),
       items: [
         { icon: 'settings', label: t('Admin Dashboard', 'لوحة الإدارة'), onPress: () => router.push('/admin') },
       ],

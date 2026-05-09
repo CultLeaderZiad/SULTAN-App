@@ -21,7 +21,6 @@ export default function ForgotPasswordScreen() {
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [devOtp, setDevOtp] = useState('');
 
   const handleSendOTP = async () => {
     if (!email) return;
@@ -33,21 +32,20 @@ export default function ForgotPasswordScreen() {
         body: JSON.stringify({ email }),
       });
       const data = await resp.json();
-      if (data.dev_otp) setDevOtp(data.dev_otp);
       if (data.email_sent) {
         Alert.alert(
-          t('OTP Sent! 📧', 'تم إرسال الرمز! 📧'),
+          t('Code Sent', 'تم إرسال الرمز'),
           t('Check your email for the 6-digit code', 'تحقق من بريدك الإلكتروني للرمز المكون من 6 أرقام')
         );
       } else {
         Alert.alert(
-          t('Code Generated', 'تم إنشاء الرمز'),
-          t('Check your email (or backend logs for dev)', 'تحقق من بريدك الإلكتروني')
+          t('Code Sent', 'تم إرسال الرمز'),
+          t('If your email is registered, the code is on its way.', 'إذا كان البريد مسجلاً، الرمز في الطريق.')
         );
       }
       setStep('otp');
     } catch (e) {
-      Alert.alert('Error', 'Failed to send OTP');
+      Alert.alert(t('Error', 'خطأ'), t('Could not send code. Try again.', 'تعذر إرسال الرمز. حاول مرة أخرى.'));
     } finally {
       setLoading(false);
     }
@@ -150,28 +148,19 @@ export default function ForgotPasswordScreen() {
           )}
 
           {step === 'otp' && (
-            <>
-              <View style={[styles.inputContainer, { backgroundColor: colors.elevated, borderColor: colors.border }]}>
-                <Ionicons name="keypad" size={20} color={colors.muted} />
-                <TextInput
-                  testID="otp-input"
-                  style={[styles.input, { color: colors.text, fontSize: 24, letterSpacing: 8, textAlign: 'center' }]}
-                  placeholder="• • • • • •"
-                  placeholderTextColor={colors.muted}
-                  value={otp}
-                  onChangeText={setOtp}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                />
-              </View>
-              {devOtp ? (
-                <View style={[styles.devOtpBox, { backgroundColor: colors.accent + '15', borderColor: colors.accent + '40' }]}>
-                  <Text style={[{ color: colors.accent, fontSize: 12 }]}>
-                    🔧 Dev OTP: <Text style={{ fontWeight: '800', fontSize: 18 }}>{devOtp}</Text>
-                  </Text>
-                </View>
-              ) : null}
-            </>
+            <View style={[styles.inputContainer, { backgroundColor: colors.elevated, borderColor: colors.border }]}>
+              <Ionicons name="keypad" size={20} color={colors.muted} />
+              <TextInput
+                testID="otp-input"
+                style={[styles.input, { color: colors.text, fontSize: 24, letterSpacing: 8, textAlign: 'center' }]}
+                placeholder="• • • • • •"
+                placeholderTextColor={colors.muted}
+                value={otp}
+                onChangeText={setOtp}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            </View>
           )}
 
           {step === 'reset' && (

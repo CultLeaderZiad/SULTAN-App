@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ import {
   checkGoldPriceChange,
   scheduleDailyGoldCheck,
 } from '../../src/services/notifications';
+import { TrialBanner } from '../../src/components/TrialBanner';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -26,7 +27,6 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [liveGoldPrices, setLiveGoldPrices] = useState<any[]>([]);
   const [prayerTimes, setPrayerTimes] = useState<any>(null);
-  const [goldSource, setGoldSource] = useState('');
 
   const convexUser = useQuery(api.users.getByAuthId, user?.authId ? { authId: user.authId } : 'skip');
   const goldPrices = useQuery(api.gold.getLatestGoldPrices);
@@ -47,17 +47,46 @@ export default function DashboardScreen() {
     convexUser?._id ? { userId: convexUser._id } : 'skip'
   );
 
+  // Onboarding redirect: when convex user is loaded but onboarding not complete
   useEffect(() => {
-    seedGold({});
-    seedInflation({});
-    seedPlans({});
-    seedHalal({});
-    // Register for push notifications
-    registerForPushNotifications();
-    scheduleDailyGoldCheck(language);
-    // Fetch live gold prices
+    if (convexUser === null && user?.authId) {
+      router.replace('/onboarding');
+    } else if (convexUser && convexUser.onboardingCompleted === false) {
+      router.replace('/onboarding');
+    }
+  }, [convexUser, user?.authId]);
+
+  // Seed lookup tables once (idempotent)
+  useEffect(() => {
+    seedGold({}).catch(() => {});
+    seedInflation({}).catch(() => {});
+    seedPlans({}).catch(() => {});
+    seedHalal({}).catch(() => {});
+  }, []);
+
+  // Auto-promote owner email + register push token (native only)
+  useEffect(() => {
+    if (!convexUser?._id) return;
+    ensureSuperAdmin({ userId: convexUser._id as any }).catch(() => {});
+
+    if (Platform.OS !== 'web') {
+      (async () => {
+        try {
+          const token = await registerForPushNotifications();
+          if (token && convexUser?._id) {
+            await setExpoPushToken({ userId: convexUser._id as any, token });
+          }
+          await scheduleDailyGoldCheck(language);
+        } catch (e) {
+          if (__DEV__) console.warn('[dashboard] push setup', e);
+        }
+      })();
+    }
+  }, [convexUser?._id]);
+
+  // External APIs
+  useEffect(() => {
     fetchLiveGold();
-    // Fetch prayer times
     fetchPrayerTimes();
   }, []);
 
@@ -66,12 +95,10 @@ export default function DashboardScreen() {
       const resp = await fetch(`${BACKEND_URL}/api/gold/prices`);
       const data = await resp.json();
       setLiveGoldPrices(data.prices || []);
-      setGoldSource(data.source || '');
-      // Check for significant gold price changes and notify
-      if (data.prices) {
+      if (data.prices && Platform.OS !== 'web') {
         checkGoldPriceChange(data.prices, language);
       }
-    } catch (e) { console.log('Gold fetch error:', e); }
+    } catch {}
   };
 
   const fetchPrayerTimes = async () => {
@@ -79,17 +106,18 @@ export default function DashboardScreen() {
       const resp = await fetch(`${BACKEND_URL}/api/prayer-times?city=Cairo&country=Egypt`);
       const data = await resp.json();
       setPrayerTimes(data);
-    } catch (e) { console.log('Prayer times error:', e); }
+    } catch {}
   };
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchLiveGold();
     fetchPrayerTimes();
-    setTimeout(() => setRefreshing(false), 1000);
+    setTimeout(() => setRefreshing(false), 800);
   };
 
   const gold21k = liveGoldPrices.find((g: any) => g.karat === 21) || goldPrices?.find((g) => g.karat === 21);
+  const gold21kChange = (liveGoldPrices.find((g: any) => g.karat === 21) as any)?.change24h ?? 0;
   const greeting = language === 'ar'
     ? `أهلاً ${convexUser?.fullName || user?.fullName || ''} 👋`
     : `Hello ${convexUser?.fullName || user?.fullName || ''} 👋`;
@@ -111,18 +139,16 @@ export default function DashboardScreen() {
           {greeting}
         </Text>
 
-        {/* Net Worth Card */}
+        <TrialBanner trialEndsAt={convexUser?.trialEndsAt} plan={convexUser?.plan} />
+
         <View testID="net-worth-card" style={[styles.netWorthCard, { backgroundColor: colors.primary }]}>
           <Text style={styles.netWorthLabel}>{t('Net Worth', 'صافي الثروة')}</Text>
           <Text style={styles.netWorthValue}>
             {convexUser?.currency || 'EGP'} {netWorth.toLocaleString()}
           </Text>
-          <Text style={styles.netWorthChange}>
-            {t('This month', 'هذا الشهر')}
-          </Text>
+          <Text style={styles.netWorthChange}>{t('This month', 'هذا الشهر')}</Text>
         </View>
 
-        {/* Quick Stats */}
         <View style={styles.statsRow}>
           {categories.map((cat, i) => (
             <View key={i} style={[styles.statCard, { backgroundColor: colors.elevated, borderColor: colors.border }]}>
@@ -135,7 +161,6 @@ export default function DashboardScreen() {
           ))}
         </View>
 
-        {/* Gold Price Widget */}
         {gold21k && (
           <TouchableOpacity
             testID="gold-widget"
@@ -153,21 +178,22 @@ export default function DashboardScreen() {
                 <Text style={[styles.goldPrice, { color: colors.text }]}>
                   EGP {gold21k.pricePerGramEGP.toLocaleString()}
                 </Text>
-                <Text style={[styles.goldChange, { color: colors.success }]}>
-                  ▲ 0.8% {t('today', 'اليوم')}
+                <Text style={[styles.goldChange, { color: gold21kChange === 0 ? colors.muted : gold21kChange > 0 ? colors.success : colors.danger }]}>
+                  {gold21kChange === 0 ? '—' : gold21kChange > 0 ? '▲' : '▼'} {Math.abs(gold21kChange).toFixed(2)}% {t('today', 'اليوم')}
                 </Text>
               </View>
             </View>
-            <View style={[styles.goldSignal, { backgroundColor: colors.success + '20' }]}>
-              <Ionicons name="trending-up" size={16} color={colors.success} />
-              <Text style={[styles.goldSignalText, { color: colors.success }]}>
-                {t('Buy Signal — Gold beating inflation', 'إشارة شراء — الذهب يتغلب على التضخم')}
+            <View style={[styles.goldSignal, { backgroundColor: (gold21kChange >= 0 ? colors.success : colors.danger) + '20' }]}>
+              <Ionicons name={gold21kChange >= 0 ? 'trending-up' : 'trending-down'} size={16} color={gold21kChange >= 0 ? colors.success : colors.danger} />
+              <Text style={[styles.goldSignalText, { color: gold21kChange >= 0 ? colors.success : colors.danger }]}>
+                {gold21kChange >= 0
+                  ? t('Gold beating inflation', 'الذهب يتغلب على التضخم')
+                  : t('Gold dipped today', 'الذهب نزل اليوم')}
               </Text>
             </View>
           </TouchableOpacity>
         )}
 
-        {/* Inflation Alert */}
         {inflationData && inflationData.ratePercent > 15 && (
           <TouchableOpacity
             testID="inflation-alert"
@@ -189,7 +215,6 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Recent Transactions */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             {t('Recent Transactions', 'آخر المعاملات')}
@@ -242,8 +267,7 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* Prayer Times Widget */}
-        {prayerTimes && (
+        {prayerTimes?.timings && (
           <View testID="prayer-widget" style={[styles.prayerWidget, { backgroundColor: colors.elevated, borderColor: colors.border }]}>
             <View style={styles.prayerHeader}>
               <Text style={{ fontSize: 18 }}>🕌</Text>
@@ -252,7 +276,7 @@ export default function DashboardScreen() {
               </Text>
             </View>
             <View style={styles.prayerRow}>
-              {Object.entries(prayerTimes.timings || {}).map(([name, time]) => (
+              {Object.entries(prayerTimes.timings).map(([name, time]) => (
                 <View key={name} style={styles.prayerItem}>
                   <Text style={[styles.prayerName, { color: colors.muted }]}>{name}</Text>
                   <Text style={[styles.prayerTime, { color: colors.text }]}>{time as string}</Text>
@@ -262,7 +286,6 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* Quick Actions */}
         <View style={styles.quickActions}>
           {[
             { icon: 'add-circle', label: t('Add Transaction', 'إضافة معاملة'), route: '/(tabs)/transactions' },
@@ -280,15 +303,30 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <Text style={[styles.devCredit, { color: colors.faint }]}>
+          {t('Developed by Ziad Sabry', 'تطوير زياد صبري')}
+        </Text>
       </ScrollView>
+
+      {/* AI Advisor FAB */}
+      <TouchableOpacity
+        testID="open-advisor-fab"
+        accessibilityLabel={t('Ask SULTAN AI', 'اسأل سلطان')}
+        style={[styles.aiFab, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
+        onPress={() => router.push('/(tabs)/advisor')}
+        activeOpacity={0.85}
+      >
+        <Text style={{ fontSize: 26 }}>👑</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { padding: 20, paddingBottom: 40 },
-  greeting: { fontSize: 24, fontWeight: '700', marginBottom: 20 },
+  scroll: { padding: 20, paddingBottom: 100 },
+  greeting: { fontSize: 24, fontWeight: '700', marginBottom: 16 },
   netWorthCard: {
     padding: 24,
     borderRadius: 16,
@@ -362,4 +400,19 @@ const styles = StyleSheet.create({
   prayerItem: { alignItems: 'center', gap: 2 },
   prayerName: { fontSize: 10, fontWeight: '600' },
   prayerTime: { fontSize: 13, fontWeight: '700' },
+  devCredit: { textAlign: 'center', fontSize: 11, marginTop: 24, letterSpacing: 0.5 },
+  aiFab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
 });

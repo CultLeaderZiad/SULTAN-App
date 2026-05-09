@@ -41,10 +41,12 @@ export default function AuthScreen() {
     try {
       if (isLogin) {
         await login(email, password);
+        // Existing user: route to root, which will pick /(tabs) or /onboarding based on convex state
+        router.replace('/');
       } else {
         await register(fullName, email, password);
+        router.replace('/onboarding');
       }
-      router.replace('/onboarding');
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Authentication failed');
     } finally {

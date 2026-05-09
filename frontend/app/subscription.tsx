@@ -1,20 +1,93 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { useLanguage } from '../src/contexts/LanguageContext';
-import { useQuery } from 'convex/react';
+import { useAuth } from '../src/contexts/AuthContext';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '../convex/_generated/api';
+import {
+  openWhatsAppForPlan,
+  openEmailForPlan,
+  showInstaPayDetails,
+  showVodafoneCashDetails,
+  OWNER,
+  type PlanInfo,
+} from '../src/utils/payments';
+
+interface PricingPlanRow {
+  _id: string;
+  planId: string;
+  nameEn: string;
+  nameAr: string;
+  priceMonthlyEGP: number;
+  priceYearlyEGP: number;
+  features: string[];
+  featuresAr: string[];
+  isFeatured: boolean;
+}
 
 export default function SubscriptionScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { colors } = useTheme();
   const { t, language } = useLanguage();
   const [yearly, setYearly] = useState(false);
 
   const plans = useQuery(api.pricingPlans.getPlans);
+  const convexUser = useQuery(api.users.getByAuthId, user?.authId ? { authId: user.authId } : 'skip');
+  const updateUserPlan = useMutation(api.users.updateUserPlan);
+
+  const buildPlanInfo = (plan: PricingPlanRow): PlanInfo => ({
+    nameEn: plan.nameEn,
+    nameAr: plan.nameAr,
+    price: yearly ? plan.priceYearlyEGP : plan.priceMonthlyEGP,
+    currency: 'EGP',
+    cycle: yearly ? 'yearly' : 'monthly',
+  });
+
+  const handleSubscribe = (plan: PricingPlanRow) => {
+    const info = buildPlanInfo(plan);
+    Alert.alert(
+      t('Choose Payment Method', 'اختر طريقة الدفع'),
+      t(
+        `${plan.nameEn} · EGP ${info.price} / ${info.cycle}`,
+        `${plan.nameAr} · ${info.price} جنيه / ${info.cycle === 'yearly' ? 'سنوي' : 'شهري'}`
+      ),
+      [
+        {
+          text: t('Pay via InstaPay', 'دفع بإنستاباي'),
+          onPress: () =>
+            showInstaPayDetails(info, language, () => {
+              openWhatsAppForPlan(info, language);
+              if (convexUser?._id) {
+                updateUserPlan({ userId: convexUser._id as any, plan: 'pro' }).catch(() => {});
+              }
+            }),
+        },
+        {
+          text: t('Vodafone Cash', 'فودافون كاش'),
+          onPress: () =>
+            showVodafoneCashDetails(info, language, () => {
+              openWhatsAppForPlan(info, language);
+            }),
+        },
+        {
+          text: t('WhatsApp', 'واتساب'),
+          onPress: () => openWhatsAppForPlan(info, language),
+        },
+        {
+          text: t('Email', 'إيميل'),
+          onPress: () => openEmailForPlan(info, language),
+        },
+        { text: t('Cancel', 'إلغاء'), style: 'cancel' },
+      ]
+    );
+  };
+
+  const planList = (plans as unknown as PricingPlanRow[]) || [];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -28,10 +101,9 @@ export default function SubscriptionScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={[styles.subtitle, { color: colors.muted }]}>
-          {t('Unlock premium features', 'افتح المميزات المتقدمة')}
+          {t('Unlock the full SULTAN experience', 'افتح تجربة سلطان الكاملة')}
         </Text>
 
-        {/* Billing Toggle */}
         <View style={[styles.billingToggle, { backgroundColor: colors.elevated }]}>
           <TouchableOpacity
             testID="monthly-toggle"
@@ -48,15 +120,14 @@ export default function SubscriptionScreen() {
             onPress={() => setYearly(true)}
           >
             <Text style={[styles.billingText, { color: yearly ? '#0A0A0F' : colors.muted }]}>
-              {t('Yearly (-17%)', 'سنوي (-17%)')}
+              {t('Yearly · Save 17%', 'سنوي · وفر 17%')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {(plans || []).map((plan) => {
+        {planList.map((plan) => {
           const price = yearly ? plan.priceYearlyEGP : plan.priceMonthlyEGP;
           const features = language === 'ar' ? plan.featuresAr : plan.features;
-
           return (
             <View
               key={plan._id}
@@ -72,16 +143,14 @@ export default function SubscriptionScreen() {
             >
               {plan.isFeatured && (
                 <View style={[styles.featuredBadge, { backgroundColor: colors.primary }]}>
-                  <Text style={styles.featuredText}>{t('MOST POPULAR', 'الأكثر شيوعاً')}</Text>
+                  <Text style={styles.featuredText}>{t('MOST POPULAR', 'الأكثر طلباً')}</Text>
                 </View>
               )}
               <Text style={[styles.planName, { color: colors.primary }]}>
                 {language === 'ar' ? plan.nameAr : plan.nameEn}
               </Text>
               <View style={styles.priceRow}>
-                <Text style={[styles.planPrice, { color: colors.text }]}>
-                  EGP {price}
-                </Text>
+                <Text style={[styles.planPrice, { color: colors.text }]}>EGP {price}</Text>
                 <Text style={[styles.planPeriod, { color: colors.muted }]}>
                   /{yearly ? t('year', 'سنة') : t('month', 'شهر')}
                 </Text>
@@ -98,8 +167,14 @@ export default function SubscriptionScreen() {
                 testID={`select-plan-${plan.planId}`}
                 style={[
                   styles.selectBtn,
-                  { backgroundColor: plan.isFeatured ? colors.primary : 'transparent', borderColor: colors.primary, borderWidth: 1 },
+                  {
+                    backgroundColor: plan.isFeatured ? colors.primary : 'transparent',
+                    borderColor: colors.primary,
+                    borderWidth: 1,
+                  },
                 ]}
+                onPress={() => handleSubscribe(plan)}
+                activeOpacity={0.85}
               >
                 <Text style={[styles.selectText, { color: plan.isFeatured ? '#0A0A0F' : colors.primary }]}>
                   {t('Subscribe', 'اشترك الآن')}
@@ -110,41 +185,41 @@ export default function SubscriptionScreen() {
         })}
 
         <Text style={[styles.trialNote, { color: colors.muted }]}>
-          {t('7-day free trial on first signup — all Sultan features', 'تجربة مجانية 7 أيام عند التسجيل — كل مميزات سلطان')}
+          {t(
+            '7-day free trial on first sign up. Cancel anytime.',
+            'تجربة مجانية 7 أيام عند التسجيل. ألغ في أي وقت.'
+          )}
         </Text>
 
-        {/* Payment Methods */}
         <View style={[styles.paymentSection, { backgroundColor: colors.elevated, borderColor: colors.border }]}>
           <Text style={[styles.paymentTitle, { color: colors.text }]}>
             {t('Payment Methods', 'طرق الدفع')}
           </Text>
           <View style={styles.paymentMethods}>
             <View style={[styles.paymentMethod, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-              <Text style={{ fontSize: 24 }}>💳</Text>
+              <Text style={{ fontSize: 22 }}>💳</Text>
               <Text style={[styles.paymentLabel, { color: colors.text }]}>InstaPay</Text>
             </View>
             <View style={[styles.paymentMethod, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-              <Text style={{ fontSize: 24 }}>📱</Text>
+              <Text style={{ fontSize: 22 }}>📱</Text>
               <Text style={[styles.paymentLabel, { color: colors.text }]}>Vodafone Cash</Text>
             </View>
             <View style={[styles.paymentMethod, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-              <Text style={{ fontSize: 24 }}>🏪</Text>
-              <Text style={[styles.paymentLabel, { color: colors.text }]}>Fawry</Text>
+              <Text style={{ fontSize: 22 }}>💬</Text>
+              <Text style={[styles.paymentLabel, { color: colors.text }]}>WhatsApp</Text>
             </View>
           </View>
-          <TouchableOpacity
-            testID="contact-developer-btn"
-            style={[styles.contactBtn, { borderColor: colors.primary }]}
-          >
-            <Ionicons name="chatbubble-ellipses" size={18} color={colors.primary} />
-            <Text style={[styles.contactBtnText, { color: colors.primary }]}>
-              {t('Contact Developer for Payment', 'تواصل مع المطور للدفع')}
-            </Text>
-          </TouchableOpacity>
-          <Text style={[styles.devContact, { color: colors.muted }]}>
-            Ziad Sabry — github.com/CultLeaderZiad
+          <Text style={[styles.paymentHelp, { color: colors.muted }]}>
+            {t(
+              'Tap any plan above to choose how to pay. PayMob · Stripe coming soon.',
+              'اضغط على أي خطة لاختيار طريقة الدفع. بايموب وسترايب قريباً.'
+            )}
           </Text>
         </View>
+
+        <Text style={[styles.dev, { color: colors.faint }]}>
+          SULTAN · {t('Developed by Ziad Sabry', 'تطوير زياد صبري')}
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -169,15 +244,14 @@ const styles = StyleSheet.create({
   featuresList: { gap: 8, marginBottom: 16 },
   featureItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   featureText: { fontSize: 13 },
-  selectBtn: { height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  selectBtn: { height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   selectText: { fontSize: 14, fontWeight: '700' },
   trialNote: { fontSize: 12, textAlign: 'center', marginTop: 8 },
   paymentSection: { marginTop: 24, padding: 20, borderRadius: 16, borderWidth: 1 },
   paymentTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
-  paymentMethods: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  paymentMethods: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   paymentMethod: { flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, alignItems: 'center', gap: 4 },
   paymentLabel: { fontSize: 11, fontWeight: '600' },
-  contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1.5, gap: 8 },
-  contactBtnText: { fontSize: 13, fontWeight: '600' },
-  devContact: { fontSize: 11, textAlign: 'center', marginTop: 8 },
+  paymentHelp: { fontSize: 11, textAlign: 'center' },
+  dev: { textAlign: 'center', fontSize: 11, marginTop: 24, letterSpacing: 0.5 },
 });

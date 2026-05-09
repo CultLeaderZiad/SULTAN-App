@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from 'convex/react';
+import { api } from '../convex/_generated/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -68,6 +70,25 @@ export default function WelcomeScreen() {
       router.replace('/(tabs)');
     }
   }, [isLoading, user]);
+
+  // Existing user (no convexUserId in cache yet) — query convex by authId
+  const convexUser = useQuery(
+    api.users.getByAuthId,
+    user?.authId && !user?.convexUserId ? { authId: user.authId } : 'skip'
+  );
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user?.authId) return;
+    if (convexUser === undefined) return; // still loading
+    if (convexUser && convexUser.onboardingCompleted) {
+      router.replace('/(tabs)');
+    } else if (convexUser && !convexUser.onboardingCompleted) {
+      router.replace('/onboarding');
+    } else if (convexUser === null) {
+      router.replace('/onboarding');
+    }
+  }, [isLoading, user?.authId, convexUser]);
 
   const particles = Array.from({ length: 20 }, (_, i) => ({
     delay: Math.random() * 3000,
